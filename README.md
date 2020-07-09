@@ -1,28 +1,31 @@
 # Step 1: 
-## Collection functional requirement
-- Design a search system that returns a set of all document ids that contains the all terms in a search string (limited by dictionary)
-- Sequence does not matter
-- Relevance does not matter
+## a. Collect functional requirement
+- Design a search system that returns a set of all document ids that contains the all terms in a search string (limited by dictionary, similar to applying double quotes in Google while searching)
+- Word sequence does not matter (interview kick start rocks)
+- Relevance does not matter (Not doing any ranking )
 - The actual document does not matter; some processing is done so that we can deal with words and document ids; processing is not in scope
-- Paging not required, not really interested client server network bandwidth 
+- Pagination not required, not really interested client server network bandwidth 
 - Static database
 
-## Collect design constraints
+## b. Collect design constraints
+- static dataset
 - Documents in the order of trillion
 - Has to be fast; 100s of ms
 - 40k search per seconds
 
 # Step 2:
-## Micro services
+## a. Micro services
 - Search micro service
-Clearly a depth oriented problem
+- Clearly a depth oriented problem
 
 # Step 3:
+## a. Draw a logical diagram
 ![](./micro-service.png)
 
 # Step 4
-## Deep dive on each micro services at a time
+## a. Deep dive on each micro services at a time
 - App tier, in-memory tier, no storage tier needed
+- Inverted index, for each word, it can have trillions of document id in sorted order.
 - Data model
     - k-v: k- words, v- sorted list of document ids(inverted index)
     w1: [d1, d2,....... dn]
@@ -34,38 +37,33 @@ Clearly a depth oriented problem
 - How to store in memory?
     - Hash map
 
-- API: search(List<string> searchString)
+- API: List <string> search(List<string> searchString)
     - For all items; get their sorted document ids list
     - Piggy back on merge of k-sorted list
+    - Use priority queue i.e. heap binary tree
+    - If tree is unival then document is common across all word 
     - Check weather the binary tree corresponding to priority queue is unival
     - heapify
+
+### Example
+Interview : [1,3,5,7,9]
+Kickstart: [2,4,5,8]
+Rock: [3, 5, 7]
+![](soln-apporach.png)
+### Time complexity
 - If number of terms is k and size of list is n: O(nk(logk + k))
     - O(n) time, O(k) auxiliary space
     - k is negligible as n is in trillions
     - worst case time complexity: O(trillion)
 ### Algorithm
 ```
-const commonSortedElements = (kSortedList) => {
-    const commonElements = [];
-    // Initialize heap
-    const minHeap = new MinHeap();
-    for(const list of kSortedList) {
-        minHeap.add(list);
+List <string> search(List<string> searchString, hashMap) {
+    const sortedList = [];
+    for (const word in searchString) {
+        sortedList.push(hashMap.get(word));
     }
-    const k = kSortedList.length;
-    while(minHeap.arr.length === k) {
-        // check if heap is unival tree
-        if(isUnivalTree(minHeap)){
-            const top = minHeap.arr[0];
-            commonElements.push(top.val);
-        }
-        // remove lowest from heap
-        const lowest = minHeap.remove();
-        if(lowest.next) {
-            minHeap.add(lowest.next);
-        }
-
-    }
+    const result = commonSortedElements(sortedList);
+    return result;
 }
 ```
 Order of complexity:
@@ -79,10 +77,12 @@ Worst case complexity is O(trillion) which is not acceptable. To solve it we nee
 
 ![](micro-service-possible-scale.png)
 
-## Each micro services consists of one of more tiers
+## b. Each micro services consists of one of more tiers
 We need to scale system to fit data into single box. 
 
 ### Need to scale for storage (memory and persistence)?
+- Why need to scale?
+To fit the data into memory.
 - Storage
 A = Number of K-Vs
 B = size of a (K-V) pair
@@ -100,11 +100,11 @@ Total size = A * B
             = 500,000 * 100,1000
             = 500 Tb
 ### Need for API parallelism?
+Analytics problem needs api parallelism. For example bitly problem which is based on key/value pair doesn't need to parallelism for api.
 - API response time or latency has to come down from worst case O(trillion) to something that maps to 100ms
-- O(10,000) ~ 100 ms (Assumption with commodity servers)
+- O(10,000) ~ 100 ms (Assumption with commodity servers i.e. run for loop 10,000 times and measure time taken)
 - Irrespective to my business, I want the system to execute search with a worst case of O(10,000)
 - In our case; O(trillion) will be O(1000,000,000,000) ~ 1000,000,00 * 100 ms ~ 2.77 hours
-
 
 ### Need for compute throughput
 How to compute throughput by a server?
@@ -115,10 +115,11 @@ How to compute throughput by a server?
 - Assume server will take X ms to process one API 
 - let's assume X = 100ms
 - A single thread can do 1000/X ~ 1000/100 ~ 10 searches per seconds
+  Note: Based on commodity server, a single thread can do 1000/X ops per second
 - In a commodity server (with 10-12 core cpu), around 100 to 200 threads can work in parallel (need to do experiment to figure out)
 - Total = 100 * 10 searches per seconds ~ 1k searches per seconds
 - 1k searches per seconds is utilizing full capacity
-- typically servers runs at 30-40% CPU capacity
+- typically servers runs at 30-60% CPU capacity
 - i.e. 300 searches per seconds or 600 searches per seconds per server
 - i.e. 30,000/X ops per seconds
 - i.e. 30,000/100 ~ 300 ops second
@@ -134,12 +135,28 @@ How much is our throughput with single server?
 - Throughput = 30,000/2.77*60*60*1000 ~ 0
 - I.e. we first need to bring down API latency down
 
-## Build scalable system
+## c. Build scalable system
+### Architectural layout for every layer
+![](assets/simple-architecture.png)
+![](assets/zoomed-architecture.png)
+
+- Config stores the distributions of data
+- Load balancer doesn't do any compute
+- Cluster Manager does compute
+It has two plane
+1. Control plane (What data lies where, this is also a key value store)
+2. Data plane (How you store data and how API works)
+Generally Zookeeper is used for cluster manager.
+### How to shard data?
 Two ways to divide data
-- Horizontal shardig ie. divide data horizontally and place each shards on separate server
+- Horizontal shardig ie. divide data horizontally and place each shards on separate server (For example  Mongodb, Cassandra etc)
 - Vertical sharding i.e. 
 - Hybrid
+
 Zookeeper is the cluster manager to hold data distribution. Horizontal is common ways to shard data.
+Note: Take example of shifting from one apartment to other for sharding analogy.
+- Large number of box with small size
+- Large size of box with small number
 ### Horizontal sharding for word index
 [aa to ap] = shard0 goes on server A, C & E
 [aq to az] = shard1 goes on server B, D 
@@ -168,17 +185,24 @@ w1 - [10,000 to 20,000]
 wk - [10,000 to 20,000] 
 
 For example
-"hello": [1, 5, 7, 15,000] shard0 and shard1
-"world": [1,5, 17,000]
+"hello": [1, 5, 7, 15000] 
+"world": [1,5, 17000]
+
+On shard0:
+"hello": [1, 5, 7] 
+"world": [1, 5]
+On shard1:
+"hello": [15000] 
+"world": [17000]
 
 ie. needs to do scatter & gather. This is bcz every shards has data we are looking for. 
 - On each machine; it is only working on small subset as 10k
-- This is a map redue paradigm
-- It is nothing but API parallism
+- This is a map reduce paradigm
+- It is nothing but API parallelism
 - We chopped data vertically bcz size of documents was bottleneck
-- Analytics system has to do API parallism i.e. scatter gather
+- Analytics system has to do API parallelism i.e. scatter gather
 
-What is problem with scatter gather?
+### What is problem with scatter gather?
 - Let's say if we get 10 search per second.
 - How many searches each shards receives?
     - 10 bcz request is send to every shard
@@ -186,7 +210,7 @@ What is problem with scatter gather?
 - A single shard can do 300 searches per seconds
 - If all shards starts receiving 300 searches per seconds; how much will be our throughput?
     - 300
-- So we are bottleneck by single shard sytem
+- So we are bottleneck by single shard system
 - I want 40k searches per seconds
 - So I have to replicate whole architecture to parallel processing
 - Google is throughput hungry problem
@@ -197,3 +221,7 @@ Scaling in Map Reduce and similar
 - How much replicas we need to handle 40k searches per seconds?
 - Replicas of each shard = 40k/300 ~ 133
 
+Conclusion
+- Search API didn't change, instead of running on bigger data set, now it runs on small data set
+- Data is sharded vertically, since document index are in integer range, so each shard has set of  possible i to i+10000 index i.e. it will not overlap
+- More replicas are added to support throughput

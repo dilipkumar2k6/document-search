@@ -31,4 +31,5 @@ const commonSortedElements = (kSortedList) => {
         }
 
     }
+    return commonElements;
 }
