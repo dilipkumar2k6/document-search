@@ -74,7 +74,10 @@ Order of space:
     = O(k)
     = constant time as compare to value we have for n
 Worst case complexity is O(trillion) which is not acceptable. To solve it we need to scale.
-
+Related leetcode problem:
+https://leetcode.com/problems/univalued-binary-tree/
+https://leetcode.com/problems/merge-k-sorted-lists/
+https://www.geeksforgeeks.org/find-common-elements-three-sorted-arrays/
 ![](micro-service-possible-scale.png)
 
 ## b. Each micro services consists of one of more tiers
