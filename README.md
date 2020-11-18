@@ -130,29 +130,39 @@ Two ways to divide data
 ### Divide data into vertically
 - Keep all keys but some values
 On shard0:
+```
 w0 - [1 to 10,000] 
 w1 - [1 to 10,000]
 .
 .
 wk - [1 to 10,000]
-
+```
 On shard1:
+```
 w0 - [10,000 to 20,000] 
 w1 - [10,000 to 20,000] 
 .
 .
 wk - [10,000 to 20,000] 
+```
 
 For example
+```
 "hello": [1, 5, 7, 15000] 
 "world": [1,5, 17000]
+```
 
 On shard0:
+```
 "hello": [1, 5, 7] 
 "world": [1, 5]
+```
+
 On shard1:
+```
 "hello": [15000] 
 "world": [17000]
+```
 
 ie. needs to do scatter & gather. This is bcz every shards has data we are looking for. 
 - On each machine; it is only working on small subset as 10k
