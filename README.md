@@ -61,9 +61,9 @@ Rock: [3, 5, 7]
 
 ## Storage estimate(memory and persistence)?
 - Storage
-A = Number of K-Vs
-B = size of a (K-V) pair
-Total size = A * B
+    - A = Number of K-Vs
+    - B = size of a (K-V) pair
+    - Total size = A * B
 - Often the theoretical max of K-Vs can be too large, better way to estimate is
     - C = How many new K-Vs / seconds
     - D = Plan for 2-3 years
@@ -73,9 +73,7 @@ Total size = A * B
     - Read only data set, no question of rate
     - A = number of words in a dictionary i.e 500,000
     - B = 100 kb (Based on sampling)
-    - Total = A * B
-            = 500,000 * 100 kb
-            = 500 Tb
+    - Total = A * B = 500,000 * 100 kb = 500 Tb
 ## Need for API parallelism?
 - API response time or latency has to come down from worst case O(trillion) to something that maps to 100ms
 - O(10,000) ~ 100 ms (Assumption with commodity servers i.e. run for loop 10,000 times and measure time taken)
@@ -119,8 +117,8 @@ Two ways to divide data
 - Hybrid
 
 ### Horizontal sharding for word index
-[aa to ap] = shard0 goes on server A, C & E
-[aq to az] = shard1 goes on server B, D 
+- [aa to ap] = shard0 goes on server A, C & E
+- [aq to az] = shard1 goes on server B, D 
 - Load balancer has to do merge
 - For example; if we search for "hello world"
 - "hello" will return 1 million documents as per shard
