@@ -30,6 +30,7 @@ Response:
 }
 ```
 Following is one example
+```
 {
     w1: [d1, d2,....... dn]
     w2: [d1, d2,....... dn]
@@ -38,6 +39,7 @@ Following is one example
     .
     wk: [d1, d2,....... dn]
 }
+```
 # Simple Search Algorithm
 - For all terms; get their sorted document ids list
 - Use priority queue i.e. heap binary tree of size terms
@@ -45,10 +47,12 @@ Following is one example
 - Once unival is found then remove all these documentIds from priority queue
 ## Example
 Interview : [1,3,5,7,9]
+
 Kickstart: [2,4,5,8]
+
 Rock: [3, 5, 7]
 
-![](asets/soln-apporach.png)
+![](assets/soln-apporach.png)
 ## Time complexity
 - If number of terms is k and size of list is n: O(nk(logk + k))
     - O(n) time, O(k) auxiliary space
