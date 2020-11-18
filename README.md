@@ -1,91 +1,61 @@
-# Step 1: 
-## a. Collect functional requirement
-- Design a search system that returns a set of all document ids that contains the all terms in a search string (limited by dictionary, similar to applying double quotes in Google while searching)
+# Requirements and Goals of the System
+## Functional requirement
+- Design a search system that returns a set of all document ids that contains the all terms in a search string
+- limited by dictionary, similar to applying double quotes in Google while searching 
+- Entire index is already stored in memory
+## Not in scope
 - Word sequence does not matter (interview kick start rocks)
 - Relevance does not matter (Not doing any ranking )
-- The actual document does not matter; some processing is done so that we can deal with words and document ids; processing is not in scope
+- The actual document does not matter; some processing is already done so that we can deal with words and document ids; 
+- document processing to build index is not in scope
 - Pagination not required, not really interested client server network bandwidth 
-- Static database
-
-## b. Collect design constraints
-- static dataset
+## Design constraints
+- static dataset i.e not handling stream of incoming new data
 - Documents in the order of trillion
-- Has to be fast; 100s of ms
-- 40k search per seconds
+- Has to be fast: 100ms
+- Search per seconds: 40k
 
-# Step 2:
-## a. Micro services
-- Search micro service
-- Clearly a depth oriented problem
-
-# Step 3:
-## a. Draw a logical diagram
-![](./micro-service.png)
-
-# Step 4
-## a. Deep dive on each micro services at a time
-- App tier, in-memory tier, no storage tier needed
-- Inverted index, for each word, it can have trillions of document id in sorted order.
-- Data model
-    - k-v: k- words, v- sorted list of document ids(inverted index)
+# System API
+```
+GET /search?q=string
+Response: 
+[
+    "d1", "d2","d3"
+]
+```
+## Schema of inverted hashmap in memory index 
+```
+{
+    <string>: string[]
+}
+```
+Following is one example
+{
     w1: [d1, d2,....... dn]
     w2: [d1, d2,....... dn]
     w3: [d1, d2,....... dn]
     .
     .
     wk: [d1, d2,....... dn]
-- How to store in memory?
-    - Hash map
-
-- API: List <string> search(List<string> searchString)
-    - For all items; get their sorted document ids list
-    - Piggy back on merge of k-sorted list
-    - Use priority queue i.e. heap binary tree
-    - If tree is unival then document is common across all word 
-    - Check weather the binary tree corresponding to priority queue is unival
-    - heapify
-
-### Example
+}
+# Simple Search Algorithm
+- For all terms; get their sorted document ids list
+- Use priority queue i.e. heap binary tree of size terms
+- If tree is unival then document is common across all word 
+- Once unival is found then remove all these documentIds from priority queue
+## Example
 Interview : [1,3,5,7,9]
 Kickstart: [2,4,5,8]
 Rock: [3, 5, 7]
-![](soln-apporach.png)
-### Time complexity
+
+![](asets/soln-apporach.png)
+## Time complexity
 - If number of terms is k and size of list is n: O(nk(logk + k))
     - O(n) time, O(k) auxiliary space
     - k is negligible as n is in trillions
-    - worst case time complexity: O(trillion)
-### Algorithm
-```
-List <string> search(List<string> searchString, hashMap) {
-    const sortedList = [];
-    for (const word in searchString) {
-        sortedList.push(hashMap.get(word));
-    }
-    const result = commonSortedElements(sortedList);
-    return result;
-}
-```
-Order of complexity:
-    = O(nklogk + nk * k)
-    = O(nk(logk + k))
-    = O(n) as k is small compare to n
-Order of space:
-    = O(k)
-    = constant time as compare to value we have for n
-Worst case complexity is O(trillion) which is not acceptable. To solve it we need to scale.
-Related leetcode problem:
-https://leetcode.com/problems/univalued-binary-tree/
-https://leetcode.com/problems/merge-k-sorted-lists/
-https://www.geeksforgeeks.org/find-common-elements-three-sorted-arrays/
-![](micro-service-possible-scale.png)
+    - Worst case complexity is O(trillion) which is not acceptable. To solve it we need to scale.
 
-## b. Each micro services consists of one of more tiers
-We need to scale system to fit data into single box. 
-
-### Need to scale for storage (memory and persistence)?
-- Why need to scale?
-To fit the data into memory.
+## Storage estimate(memory and persistence)?
 - Storage
 A = Number of K-Vs
 B = size of a (K-V) pair
@@ -98,18 +68,17 @@ Total size = A * B
 - For this problem
     - Read only data set, no question of rate
     - A = number of words in a dictionary i.e 500,000
-    - B = 100,000 (Based on sampling)
+    - B = 100 kb (Based on sampling)
     - Total = A * B
-            = 500,000 * 100,1000
+            = 500,000 * 100 kb
             = 500 Tb
-### Need for API parallelism?
-Analytics problem needs api parallelism. For example bitly problem which is based on key/value pair doesn't need to parallelism for api.
+## Need for API parallelism?
 - API response time or latency has to come down from worst case O(trillion) to something that maps to 100ms
 - O(10,000) ~ 100 ms (Assumption with commodity servers i.e. run for loop 10,000 times and measure time taken)
 - Irrespective to my business, I want the system to execute search with a worst case of O(10,000)
 - In our case; O(trillion) will be O(1000,000,000,000) ~ 1000,000,00 * 100 ms ~ 2.77 hours
 
-### Need for compute throughput
+## Need for compute throughput
 How to compute throughput by a server?
 - How much throughput a single server will give?
 - Given any server, all I need to know is, how much time API will take.
@@ -138,28 +107,13 @@ How much is our throughput with single server?
 - Throughput = 30,000/2.77*60*60*1000 ~ 0
 - I.e. we first need to bring down API latency down
 
-## c. Build scalable system
-### Architectural layout for every layer
-![](assets/simple-architecture.png)
-![](assets/zoomed-architecture.png)
-
-- Config stores the distributions of data
-- Load balancer doesn't do any compute
-- Cluster Manager does compute
-It has two plane
-1. Control plane (What data lies where, this is also a key value store)
-2. Data plane (How you store data and how API works)
-Generally Zookeeper is used for cluster manager.
+## Optimized search algorithm
 ### How to shard data?
 Two ways to divide data
 - Horizontal shardig ie. divide data horizontally and place each shards on separate server (For example  Mongodb, Cassandra etc)
-- Vertical sharding i.e. 
+- Vertical sharding i.e. divide data vertically and place each shard on separate server. 
 - Hybrid
 
-Zookeeper is the cluster manager to hold data distribution. Horizontal is common ways to shard data.
-Note: Take example of shifting from one apartment to other for sharding analogy.
-- Large number of box with small size
-- Large size of box with small number
 ### Horizontal sharding for word index
 [aa to ap] = shard0 goes on server A, C & E
 [aq to az] = shard1 goes on server B, D 
@@ -219,12 +173,12 @@ ie. needs to do scatter & gather. This is bcz every shards has data we are looki
 - Google is throughput hungry problem
 
 Scaling in Map Reduce and similar
-![](replicated-shards.png)
+![](assets/replicated-shards.png)
 
 - How much replicas we need to handle 40k searches per seconds?
 - Replicas of each shard = 40k/300 ~ 133
 
-Conclusion
+###  Conclusion
 - Search API didn't change, instead of running on bigger data set, now it runs on small data set
 - Data is sharded vertically, since document index are in integer range, so each shard has set of  possible i to i+10000 index i.e. it will not overlap
 - More replicas are added to support throughput
